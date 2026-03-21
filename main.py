@@ -126,8 +126,22 @@ def main(args: argparse.Namespace) -> None:
     metric_path = model_tag / "metrics"
     os.makedirs(metric_path, exist_ok=True)
 
+    # Resume from checkpoint
+    start_epoch = 0
+    if args.resume_checkpoint and os.path.isfile(args.resume_checkpoint):
+        print("=> loading checkpoint ", args.resume_checkpoint)
+        checkpoint = torch.load(args.resume_checkpoint, map_location=device)
+        start_epoch = checkpoint["epoch"] + 1
+        best_dev_eer = checkpoint["best_dev_eer"]
+        model.load_state_dict(checkpoint["model_state_dict"])
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+        print("=> loaded checkpoint (epoch {})".format(checkpoint["epoch"]))
+    else:
+        print("=> no checkpoint found at ", args.resume_checkpoint)
+
     # Training
-    for epoch in range(config["num_epochs"]):
+    for epoch in range(start_epoch, config["num_epochs"]):
         print("Start training epoch{:03d}".format(epoch))
         running_loss = train_epoch(trn_loader, model, optimizer, device,
                                    scheduler, config)
@@ -146,11 +160,21 @@ def main(args: argparse.Namespace) -> None:
 
         best_dev_tdcf = min(dev_tdcf, best_dev_tdcf)
         if best_dev_eer >= dev_eer:
+        is_best = dev_eer <= best_dev_eer
+        if is_best:
             print("best model find at epoch", epoch)
             best_dev_eer = dev_eer
-            torch.save(model.state_dict(),
-                       model_save_path / "epoch_{}_{:03.3f}.pth".format(epoch, dev_eer))
 
+        # Save checkpoint
+        save_checkpoint({
+            "epoch": epoch,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "scheduler_state_dict": scheduler.state_dict(),
+            "best_dev_eer": best_dev_eer
+        }, is_best, model_save_path)
+
+        if is_best:
             # do evaluation whenever best model is renewed
             if str_to_bool(config["eval_all_best"]):
                 produce_evaluation_file(eval_loader, model, device,
@@ -168,8 +192,6 @@ def main(args: argparse.Namespace) -> None:
                 if eval_tdcf < best_eval_tdcf:
                     log_text += "best tdcf, {:.4f}".format(eval_tdcf)
                     best_eval_tdcf = eval_tdcf
-                    torch.save(model.state_dict(),
-                               model_save_path / "best.pth")
                 if len(log_text) > 0:
                     print(log_text)
                     f_log.write(log_text + "\n")
@@ -358,6 +380,15 @@ def train_epoch(
     return running_loss
 
 
+def save_checkpoint(state, is_best, model_save_path):
+    """Saves checkpoint to disk"""
+    # Save the latest checkpoint
+    torch.save(state, model_save_path / "checkpoint.pth")
+    if is_best:
+        # Overwrite the best model
+        torch.save(state["model_state_dict"], model_save_path / "best.pth")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ASVspoof detection system")
     parser.add_argument("--config",
@@ -383,7 +414,9 @@ if __name__ == "__main__":
     parser.add_argument("--comment",
                         type=str,
                         default=None,
-                        help="comment to describe the saved model")
+                        help="Comment to describe the saved model")
+    parser.add_argument("--resume_checkpoint", type=str, default=None,
+                        help="path to resume training from a checkpoint")
     parser.add_argument("--eval_model_weights",
                         type=str,
                         default=None,
