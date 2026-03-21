@@ -3,7 +3,9 @@ _*
 .*
 exp_result/
 config/
+!config/AASIST_AST.conf
 models/
+!models/AASIST_AST.py
 depreciated/
 LA/
 
