@@ -159,7 +159,6 @@ def main(args: argparse.Namespace) -> None:
         writer.add_scalar("dev_tdcf", dev_tdcf, epoch)
 
         best_dev_tdcf = min(dev_tdcf, best_dev_tdcf)
-        if best_dev_eer >= dev_eer:
         is_best = dev_eer <= best_dev_eer
         if is_best:
             print("best model find at epoch", epoch)
