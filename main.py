@@ -16,6 +16,14 @@ from pathlib import Path
 from shutil import copy
 from typing import Dict, List, Union
 
+def save_checkpoint(state, is_best, model_save_path):
+    """Saves model checkpoint to disk"""
+    filename = model_save_path / 'checkpoint.pth'
+    torch.save(state, filename)
+    if is_best:
+        best_filename = model_save_path / 'best.pth'
+        copy(filename, best_filename)
+
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
