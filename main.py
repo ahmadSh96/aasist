@@ -76,9 +76,7 @@ def main(args: argparse.Namespace) -> None:
     model_save_path = model_tag / "weights"
     eval_score_path = model_tag / config["eval_output"]
     writer = SummaryWriter(model_tag)
-    print(f"DEBUG: model_save_path before creation: {model_save_path}")
     os.makedirs(model_save_path, exist_ok=True)
-    print(f"DEBUG: model_save_path exists: {os.path.exists(model_save_path)}")
     copy(args.config, model_tag / "config.conf")
 
     # set device
@@ -134,9 +132,11 @@ def main(args: argparse.Namespace) -> None:
     def save_checkpoint(state, is_best, model_save_path):
         """Saves model checkpoint to disk"""
         filename = model_save_path / 'checkpoint.pth'
-        print(f"DEBUG: Attempting to save checkpoint to: {filename}")
+        print(f"DEBUG: Saving checkpoint to: {filename}")
+
         torch.save(state, filename)
         print(f"DEBUG: Checkpoint saved. File exists: {os.path.exists(filename)}")
+
         if is_best:
             best_filename = model_save_path / 'best.pth'
             copy(filename, best_filename)
