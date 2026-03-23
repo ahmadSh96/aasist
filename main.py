@@ -16,15 +16,9 @@ from pathlib import Path
 from shutil import copy
 from typing import Dict, List, Union
 
-def save_checkpoint(state, is_best, model_save_path):
-    """Saves model checkpoint to disk"""
-    filename = model_save_path / 'checkpoint.pth'
-    torch.save(state, filename)
-    if is_best:
-        best_filename = model_save_path / 'best.pth'
-        copy(filename, best_filename)
-
 import torch
+
+
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -82,7 +76,9 @@ def main(args: argparse.Namespace) -> None:
     model_save_path = model_tag / "weights"
     eval_score_path = model_tag / config["eval_output"]
     writer = SummaryWriter(model_tag)
+    print(f"DEBUG: model_save_path before creation: {model_save_path}")
     os.makedirs(model_save_path, exist_ok=True)
+    print(f"DEBUG: model_save_path exists: {os.path.exists(model_save_path)}")
     copy(args.config, model_tag / "config.conf")
 
     # set device
@@ -133,6 +129,17 @@ def main(args: argparse.Namespace) -> None:
     # make directory for metric logging
     metric_path = model_tag / "metrics"
     os.makedirs(metric_path, exist_ok=True)
+
+    # Define save_checkpoint function locally to ensure it has access to torch
+    def save_checkpoint(state, is_best, model_save_path):
+        """Saves model checkpoint to disk"""
+        filename = model_save_path / 'checkpoint.pth'
+        print(f"DEBUG: Attempting to save checkpoint to: {filename}")
+        torch.save(state, filename)
+        print(f"DEBUG: Checkpoint saved. File exists: {os.path.exists(filename)}")
+        if is_best:
+            best_filename = model_save_path / 'best.pth'
+            copy(filename, best_filename)
 
     # Resume from checkpoint
     start_epoch = 0
