@@ -1,7 +1,6 @@
 """
 Main script that trains, validates, and evaluates
 various models including AASIST.
-
 AASIST
 Copyright (c) 2021-present NAVER Corp.
 MIT license
@@ -15,22 +14,17 @@ from importlib import import_module
 from pathlib import Path
 from shutil import copy
 from typing import Dict, List, Union
-
 import torch
-
 
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchcontrib.optim import SWA
-
 from data_utils import (Dataset_ASVspoof2019_train,
                         Dataset_ASVspoof2019_devNeval, genSpoof_list)
 from evaluation import calculate_tDCF_EER
 from utils import create_optimizer, seed_worker, set_seed, str_to_bool
-
 warnings.filterwarnings("ignore", category=FutureWarning)
-
 
 def main(args: argparse.Namespace) -> None:
     """
@@ -49,10 +43,8 @@ def main(args: argparse.Namespace) -> None:
         config["eval_all_best"] = "True"
     if "freq_aug" not in config:
         config["freq_aug"] = "False"
-
     # make experiment reproducible
     set_seed(args.seed, config)
-
     # define database related paths
     output_dir = Path(args.output_dir)
     prefix_2019 = "ASVspoof2019.{}".format(track)
@@ -64,7 +56,6 @@ def main(args: argparse.Namespace) -> None:
         database_path /
         "ASVspoof2019_{}_cm_protocols/{}.cm.eval.trl.txt".format(
             track, prefix_2019))
-
     # define model related paths
     model_tag = "{}_{}_ep{}_bs{}".format(
         track,
@@ -76,22 +67,22 @@ def main(args: argparse.Namespace) -> None:
     model_save_path = model_tag / "weights"
     eval_score_path = model_tag / config["eval_output"]
     writer = SummaryWriter(model_tag)
-    os.makedirs(model_save_path, exist_ok=True)
-    copy(args.config, model_tag / "config.conf")
 
+
+    os.makedirs(model_save_path, exist_ok=True)
+
+
+    copy(args.config, model_tag / "config.conf")
     # set device
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("Device: {}".format(device))
     if device == "cpu":
         raise ValueError("GPU not detected!")
-
     # define model architecture
     model = get_model(model_config, device)
-
     # define dataloaders
     trn_loader, dev_loader, eval_loader = get_loader(
         database_path, args.seed, config)
-
     # evaluates pretrained model and exit script
     if args.eval:
         model.load_state_dict(
@@ -110,12 +101,10 @@ def main(args: argparse.Namespace) -> None:
             asv_score_file=database_path / config["asv_score_path"],
             output_file=model_tag/"loaded_model_t-DCF_EER.txt")
         sys.exit(0)
-
     # get optimizer and scheduler
     optim_config["steps_per_epoch"] = len(trn_loader)
     optimizer, scheduler = create_optimizer(model.parameters(), optim_config)
     optimizer_swa = SWA(optimizer)
-
     best_dev_eer = 1.
     best_eval_eer = 100.
     best_dev_tdcf = 0.05
@@ -123,24 +112,23 @@ def main(args: argparse.Namespace) -> None:
     n_swa_update = 0  # number of snapshots of model to use in SWA
     f_log = open(model_tag / "metric_log.txt", "a")
     f_log.write("=" * 5 + "\n")
-
     # make directory for metric logging
     metric_path = model_tag / "metrics"
     os.makedirs(metric_path, exist_ok=True)
-
     # Define save_checkpoint function locally to ensure it has access to torch
     def save_checkpoint(state, is_best, model_save_path):
         """Saves model checkpoint to disk"""
         filename = model_save_path / 'checkpoint.pth'
-        print(f"DEBUG: Saving checkpoint to: {filename}")
+
+
 
         torch.save(state, filename)
-        print(f"DEBUG: Checkpoint saved. File exists: {os.path.exists(filename)}")
+
+
 
         if is_best:
             best_filename = model_save_path / 'best.pth'
             copy(filename, best_filename)
-
     # Resume from checkpoint
     start_epoch = 0
     if args.resume_checkpoint and os.path.isfile(args.resume_checkpoint):
@@ -154,7 +142,6 @@ def main(args: argparse.Namespace) -> None:
         print("=> loaded checkpoint (epoch {})".format(checkpoint["epoch"]))
     else:
         print("=> no checkpoint found at ", args.resume_checkpoint)
-
     # Training
     for epoch in range(start_epoch, config["num_epochs"]):
         print("Start training epoch{:03d}".format(epoch))
@@ -172,13 +159,11 @@ def main(args: argparse.Namespace) -> None:
         writer.add_scalar("loss", running_loss, epoch)
         writer.add_scalar("dev_eer", dev_eer, epoch)
         writer.add_scalar("dev_tdcf", dev_tdcf, epoch)
-
         best_dev_tdcf = min(dev_tdcf, best_dev_tdcf)
         is_best = dev_eer <= best_dev_eer
         if is_best:
             print("best model find at epoch", epoch)
             best_dev_eer = dev_eer
-
         # Save checkpoint
         save_checkpoint({
             "epoch": epoch,
@@ -187,7 +172,6 @@ def main(args: argparse.Namespace) -> None:
             "scheduler_state_dict": scheduler.state_dict(),
             "best_dev_eer": best_dev_eer
         }, is_best, model_save_path)
-
         if is_best:
             # do evaluation whenever best model is renewed
             if str_to_bool(config["eval_all_best"]):
@@ -198,7 +182,6 @@ def main(args: argparse.Namespace) -> None:
                     asv_score_file=database_path / config["asv_score_path"],
                     output_file=metric_path /
                     "t-DCF_EER_{:03d}epo.txt".format(epoch))
-
                 log_text = "epoch{:03d}, ".format(epoch)
                 if eval_eer < best_eval_eer:
                     log_text += "best eer, {:.4f}%".format(eval_eer)
@@ -209,13 +192,11 @@ def main(args: argparse.Namespace) -> None:
                 if len(log_text) > 0:
                     print(log_text)
                     f_log.write(log_text + "\n")
-
             print("Saving epoch {} for swa".format(epoch))
             optimizer_swa.update_swa()
             n_swa_update += 1
         writer.add_scalar("best_dev_eer", best_dev_eer, epoch)
         writer.add_scalar("best_dev_tdcf", best_dev_tdcf, epoch)
-
     print("Start final evaluation")
     epoch += 1
     if n_swa_update > 0:
@@ -231,10 +212,8 @@ def main(args: argparse.Namespace) -> None:
     f_log.write("=" * 5 + "\n")
     f_log.write("EER: {:.3f}, min t-DCF: {:.5f}".format(eval_eer, eval_tdcf))
     f_log.close()
-
     torch.save(model.state_dict(),
                model_save_path / "swa.pth")
-
     if eval_eer <= best_eval_eer:
         best_eval_eer = eval_eer
     if eval_tdcf <= best_eval_tdcf:
@@ -244,7 +223,6 @@ def main(args: argparse.Namespace) -> None:
     print("Exp FIN. EER: {:.3f}, min t-DCF: {:.5f}".format(
         best_eval_eer, best_eval_tdcf))
 
-
 def get_model(model_config: Dict, device: torch.device):
     """Define DNN model architecture"""
     module = import_module("models.{}".format(model_config["architecture"]))
@@ -252,9 +230,7 @@ def get_model(model_config: Dict, device: torch.device):
     model = _model(model_config).to(device)
     nb_params = sum([param.view(-1).size()[0] for param in model.parameters()])
     print("no. model params:{}".format(nb_params))
-
     return model
-
 
 def get_loader(
         database_path: str,
@@ -263,11 +239,9 @@ def get_loader(
     """Make PyTorch DataLoaders for train / developement / evaluation"""
     track = config["track"]
     prefix_2019 = "ASVspoof2019.{}".format(track)
-
     trn_database_path = database_path / "ASVspoof2019_{}_train/".format(track)
     dev_database_path = database_path / "ASVspoof2019_{}_dev/".format(track)
     eval_database_path = database_path / "ASVspoof2019_{}_eval/".format(track)
-
     trn_list_path = (database_path /
                      "ASVspoof2019_{}_cm_protocols/{}.cm.train.trn.txt".format(
                          track, prefix_2019))
@@ -278,12 +252,10 @@ def get_loader(
         database_path /
         "ASVspoof2019_{}_cm_protocols/{}.cm.eval.trl.txt".format(
             track, prefix_2019))
-
     d_label_trn, file_train = genSpoof_list(dir_meta=trn_list_path,
                                             is_train=True,
                                             is_eval=False)
     print("no. training files:", len(file_train))
-
     train_set = Dataset_ASVspoof2019_train(list_IDs=file_train,
                                            labels=d_label_trn,
                                            base_dir=trn_database_path)
@@ -296,12 +268,10 @@ def get_loader(
                             pin_memory=True,
                             worker_init_fn=seed_worker,
                             generator=gen)
-
     _, file_dev = genSpoof_list(dir_meta=dev_trial_path,
                                 is_train=False,
                                 is_eval=False)
     print("no. validation files:", len(file_dev))
-
     dev_set = Dataset_ASVspoof2019_devNeval(list_IDs=file_dev,
                                             base_dir=dev_database_path)
     dev_loader = DataLoader(dev_set,
@@ -309,7 +279,6 @@ def get_loader(
                             shuffle=False,
                             drop_last=False,
                             pin_memory=True)
-
     file_eval = genSpoof_list(dir_meta=eval_trial_path,
                               is_train=False,
                               is_eval=True)
@@ -320,9 +289,7 @@ def get_loader(
                              shuffle=False,
                              drop_last=False,
                              pin_memory=True)
-
     return trn_loader, dev_loader, eval_loader
-
 
 def produce_evaluation_file(
     data_loader: DataLoader,
@@ -344,7 +311,6 @@ def produce_evaluation_file(
         # add outputs
         fname_list.extend(utt_id)
         score_list.extend(batch_score.tolist())
-
     assert len(trial_lines) == len(fname_list) == len(score_list)
     with open(save_path, "w") as fh:
         for fn, sco, trl in zip(fname_list, score_list, trial_lines):
@@ -352,7 +318,6 @@ def produce_evaluation_file(
             assert fn == utt_id
             fh.write("{} {} {} {}\n".format(utt_id, src, key, sco))
     print("Scores saved to {}".format(save_path))
-
 
 def train_epoch(
     trn_loader: DataLoader,
@@ -366,7 +331,6 @@ def train_epoch(
     num_total = 0.0
     ii = 0
     model.train()
-
     # set objective (Loss) functions
     weight = torch.FloatTensor([0.1, 0.9]).to(device)
     criterion = nn.CrossEntropyLoss(weight=weight)
@@ -382,17 +346,14 @@ def train_epoch(
         optim.zero_grad()
         batch_loss.backward()
         optim.step()
-
         if config["optim_config"]["scheduler"] in ["cosine", "keras_decay"]:
             scheduler.step()
         elif scheduler is None:
             pass
         else:
             raise ValueError("scheduler error, got:{}".format(scheduler))
-
     running_loss /= num_total
     return running_loss
-
 
 def save_checkpoint(state, is_best, model_save_path):
     """Saves checkpoint to disk"""
@@ -401,7 +362,6 @@ def save_checkpoint(state, is_best, model_save_path):
     if is_best:
         # Overwrite the best model
         torch.save(state["model_state_dict"], model_save_path / "best.pth")
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ASVspoof detection system")
