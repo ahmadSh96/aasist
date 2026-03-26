@@ -119,6 +119,8 @@ def main(args: argparse.Namespace) -> None:
     def save_checkpoint(state, is_best, model_save_path):
         """Saves model checkpoint to disk"""
         filename = model_save_path / 'checkpoint.pth'
+        print(f"[DEBUG] Saving checkpoint to: {filename}")
+        print(f"[DEBUG] model_save_path: {model_save_path}")
 
 
 
@@ -165,6 +167,7 @@ def main(args: argparse.Namespace) -> None:
             print("best model find at epoch", epoch)
             best_dev_eer = dev_eer
         # Save checkpoint
+        print(f"[DEBUG] Calling save_checkpoint with model_save_path: {model_save_path}")
         save_checkpoint({
             "epoch": epoch,
             "model_state_dict": model.state_dict(),
