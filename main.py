@@ -70,6 +70,7 @@ def main(args: argparse.Namespace) -> None:
 
 
     os.makedirs(model_save_path, exist_ok=True)
+    print(f"[DEBUG] model_save_path created: {model_save_path}")
 
 
     copy(args.config, model_tag / "config.conf")
@@ -119,18 +120,21 @@ def main(args: argparse.Namespace) -> None:
     def save_checkpoint(state, is_best, model_save_path):
         """Saves model checkpoint to disk"""
         filename = model_save_path / 'checkpoint.pth'
+        print(f"[DEBUG] Checkpoint filename: {filename}")
         print(f"[DEBUG] Saving checkpoint to: {filename}")
         print(f"[DEBUG] model_save_path: {model_save_path}")
 
 
 
         torch.save(state, filename)
+        print(f"[DEBUG] Checkpoint saved to: {filename}")
 
 
 
         if is_best:
             best_filename = model_save_path / 'best.pth'
             copy(filename, best_filename)
+            print(f"[DEBUG] Best checkpoint copied to: {best_filename}")
     # Resume from checkpoint
     start_epoch = 0
     if args.resume_checkpoint and os.path.isfile(args.resume_checkpoint):
