@@ -24,15 +24,15 @@ from models.AASIST import (
 # Simple AST implementation (or we can use timm/transformers)
 # For simplicity and to avoid heavy dependencies, we'll use a basic ViT-like structure for audio
 class ASTEncoder(nn.Module):
-    def __init__(self, input_tdim=646, input_fdim=128, embed_dim=256, depth=4, num_heads=4):
+    def __init__(self, input_tdim=646, input_fdim=256, embed_dim=384, depth=6, num_heads=6): # Updated fdim, embed_dim, depth, num_heads
         super().__init__()
         # Mel spectrogram extraction
         self.mel_spec = torchaudio.transforms.MelSpectrogram(
             sample_rate=16000,
             n_fft=512,
             win_length=400,
-            hop_length=160,
-            n_mels=input_fdim
+            hop_length=80, # Decreased from 160 for finer temporal resolution
+            n_mels=256 # Increased from 128
         )
         self.amplitude_to_db = torchaudio.transforms.AmplitudeToDB()
         
@@ -53,7 +53,7 @@ class ASTEncoder(nn.Module):
         # CLS token and pos embedding
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
         # Approximate max patches: (64600/160)/16 * 128/16 = 25 * 8 = 200
-        self.pos_embed = nn.Parameter(torch.zeros(1, 500, embed_dim)) 
+        self.pos_embed = nn.Parameter(torch.zeros(1, 1024, embed_dim)) # Increased for more patches 
         
     def forward(self, x):
         # x: (B, 1, T) -> (B, T)
@@ -144,7 +144,7 @@ class Model(nn.Module):
         self.pool_hT2 = GraphPool(pool_ratios[2], gat_dims[1], 0.3)
 
         # AST Encoder
-        self.ast_embed_dim = 256
+        self.ast_embed_dim = 384 # Updated to match embed_dim
         self.ast_encoder = ASTEncoder(embed_dim=self.ast_embed_dim)
         
         # Output layer combines AASIST features (5 * gat_dims[1]) and AST features (ast_embed_dim)
