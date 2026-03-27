@@ -24,7 +24,7 @@ from models.AASIST import (
 # Simple AST implementation (or we can use timm/transformers)
 # For simplicity and to avoid heavy dependencies, we'll use a basic ViT-like structure for audio
 class ASTEncoder(nn.Module):
-    def __init__(self, input_tdim=646, input_fdim=256, embed_dim=384, depth=6, num_heads=6): # Updated fdim, embed_dim, depth, num_heads
+    def __init__(self, input_tdim=646, input_fdim=128, embed_dim=384, depth=6, num_heads=6): # Updated fdim to match n_mels
         super().__init__()
         # Mel spectrogram extraction
         self.mel_spec = torchaudio.transforms.MelSpectrogram(
@@ -32,7 +32,7 @@ class ASTEncoder(nn.Module):
             n_fft=512,
             win_length=400,
             hop_length=80, # Decreased from 160 for finer temporal resolution
-            n_mels=256 # Increased from 128
+            n_mels=128 # Adjusted to address UserWarning
         )
         self.amplitude_to_db = torchaudio.transforms.AmplitudeToDB()
         
@@ -53,7 +53,7 @@ class ASTEncoder(nn.Module):
         # CLS token and pos embedding
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
         # Approximate max patches: (64600/160)/16 * 128/16 = 25 * 8 = 200
-        self.pos_embed = nn.Parameter(torch.zeros(1, 1024, embed_dim)) # Increased for more patches 
+        self.pos_embed = nn.Parameter(torch.zeros(1, 512, embed_dim)) # Adjusted for new n_mels and hop_length 
         
     def forward(self, x):
         # x: (B, 1, T) -> (B, T)
