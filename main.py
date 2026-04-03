@@ -81,6 +81,8 @@ def main(args: argparse.Namespace) -> None:
         raise ValueError("GPU not detected!")
     # define model architecture
     model = get_model(model_config, device)
+    if args.pretrained_aasist_path:
+        model.load_aasist_weights(args.pretrained_aasist_path)
     # define dataloaders
     trn_loader, dev_loader, eval_loader = get_loader(
         database_path, args.seed, config)
@@ -392,6 +394,9 @@ if __name__ == "__main__":
         "--eval",
         action="store_true",
         help="when this flag is given, evaluates given model and exit")
+
+
+
     parser.add_argument("--comment",
                         type=str,
                         default=None,
