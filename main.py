@@ -407,4 +407,5 @@ if __name__ == "__main__":
                         type=str,
                         default=None,
                         help="directory to the model weight file (can be also given in the config file)")
+    parser.add_argument('--pretrained_aasist_path', type=str, default=None, help='Path to pre-trained AASIST weights for transfer learning')
     main(parser.parse_args())
