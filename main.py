@@ -141,7 +141,11 @@ def main(args: argparse.Namespace) -> None:
     start_epoch = 0
     if args.resume_checkpoint and os.path.isfile(args.resume_checkpoint):
         print("=> loading checkpoint ", args.resume_checkpoint)
-        checkpoint = torch.load(args.resume_checkpoint, map_location=device)
+        checkpoint = torch.load(
+            args.resume_checkpoint,
+            map_location=device,
+            weights_only=False  # مهم مع checkpoints قديمة/كاملة
+        )
         start_epoch = checkpoint["epoch"] + 1
         best_dev_eer = checkpoint["best_dev_eer"]
         model.load_state_dict(checkpoint["model_state_dict"])
